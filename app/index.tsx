@@ -1,11 +1,11 @@
 import { Link, Stack } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import DateRangePicker from '@/components/DateRangePicker';
-import { useI18n } from '@/i18n';
 
 export default function Index() {
-  const { t } = useI18n();
+  const { t } = useTranslation();
 
   return (
     <>

@@ -1,32 +1,26 @@
-import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button, Text, XStack } from 'tamagui';
 
-import { useLocale } from '../i18n';
-
 export default function LanguageSwitcher() {
-  const [locale, setLocale] = useLocale();
-
-  useEffect(() => {
-    console.log('locale: ', locale);
-  }, [locale]);
+  const { i18n } = useTranslation();
 
   return (
     <XStack gap="$2">
       <Button
         size="$2"
         variant="outlined"
-        bg={locale === 'en' ? '$orange10' : 'transparent'}
-        onPress={() => setLocale('en')}
+        bg={i18n.language === 'en' ? '$orange10' : 'transparent'}
+        onPress={() => i18n.changeLanguage('en')}
       >
-        <Text color={locale === 'en' ? '$white' : '$color'}>EN</Text>
+        <Text color={i18n.language === 'en' ? '$white' : '$color'}>EN</Text>
       </Button>
       <Button
         size="$2"
         variant="outlined"
-        bg={locale === 'zh' ? '$orange10' : 'transparent'}
-        onPress={() => setLocale('zh')}
+        bg={i18n.language === 'zh' ? '$orange10' : 'transparent'}
+        onPress={() => i18n.changeLanguage('zh')}
       >
-        <Text color={locale === 'zh' ? '$white' : '$color'}>中文</Text>
+        <Text color={i18n.language === 'zh' ? '$white' : '$color'}>中文</Text>
       </Button>
     </XStack>
   );

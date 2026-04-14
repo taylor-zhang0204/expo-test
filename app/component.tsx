@@ -1,11 +1,10 @@
 import { Stack } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Input, Text, TextArea, Theme, XStack, YStack, ZStack } from 'tamagui';
 
-import { useI18n } from '@/i18n';
-
 export default function Component() {
-  const { t } = useI18n();
+  const { t } = useTranslation();
 
   return (
     <SafeAreaView>
