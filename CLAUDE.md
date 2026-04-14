@@ -26,7 +26,17 @@ pnpm reset-project    # Move starter code to app-example/, reset app/
 - **`tamagui.config.ts`** - Tamagui configuration (uses `@tamagui/config/v5`)
 - **`babel.config.js`** - Babel config with Tamagui babel plugin for props transformation
 
-## Tamagui Props Note
+## Tamagui v2
+
+This project uses **Tamagui v2** for UI components.
+
+### Tamagui v2 API Differences
+
+- **`ButtonText` is not exported in v2** - Use `Text` directly inside Button
+- Button `color` prop was removed - wrap text with `Text` component and set color there
+- Use `variant` prop instead of `theme` for button variants
+
+### Tamagui Props Note
 
 Props like `maxW`, `p`, `self`, `gap` are Tamagui shorthand props. The `@tamagui/babel-plugin` must be configured in `babel.config.js` to transform these:
 

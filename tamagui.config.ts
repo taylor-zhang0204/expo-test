@@ -1,10 +1,16 @@
 import { defaultConfig } from '@tamagui/config/v5';
+import { animations } from '@tamagui/config/v5-css';
 import { createTamagui } from 'tamagui';
 
-export const config = createTamagui(defaultConfig);
+export const tamaguiConfig = createTamagui({
+  ...defaultConfig,
+  animations,
+});
 
-export type TamaguiConfig = typeof config;
+export default tamaguiConfig;
+
+export type Conf = typeof tamaguiConfig;
 
 declare module 'tamagui' {
-  interface TamaguiCustomConfig extends TamaguiConfig {}
+  interface TamaguiCustomConfig extends Conf {}
 }
