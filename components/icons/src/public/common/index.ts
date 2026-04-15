@@ -1,4 +1,4 @@
 export { default as Chart } from './Chart';
-export { default as Drip } from './Drip';
-export { default as Notion } from './Notion';
-export { default as Time } from './Time';
+export { default as Globe } from './Globe';
+export { default as LeftArrow } from './LeftArrow';
+export { default as Logo } from './Logo';

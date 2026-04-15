@@ -1,8 +1,8 @@
 import { Stack } from 'expo-router';
 import { useColorScheme } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { TamaguiProvider } from 'tamagui';
 
-import LanguageSwitcher from '@/components/LanguageSwitcher';
 import '@/i18n';
 
 import { tamaguiConfig } from '../tamagui.config';
@@ -12,18 +12,14 @@ export default function RootLayout() {
 
   return (
     <TamaguiProvider config={tamaguiConfig} defaultTheme={colorScheme!}>
-      <Stack
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: '#f4511e',
-          },
-          headerTintColor: 'white',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
-          headerRight: () => <LanguageSwitcher />,
-        }}
-      />
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F7F9FD' }}>
+        <Stack
+          screenOptions={{
+            headerTransparent: true,
+            headerShown: false,
+          }}
+        />
+      </SafeAreaView>
     </TamaguiProvider>
   );
 }
