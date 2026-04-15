@@ -1,298 +1,168 @@
 /* eslint-disable */
 
-const { open, readdir, access, mkdir, writeFile, appendFile, rm } = require('node:fs/promises');
+const { execSync } = require('node:child_process');
+const { readdirSync, mkdirSync, rmSync, readFileSync, writeFileSync } = require('node:fs');
 const path = require('node:path');
 
-const { parseXml } = require('@rgrove/parse-xml');
-const camelCase = require('lodash/camelCase');
-const template = require('lodash/template');
-
 const iconsPath = path.resolve(__dirname, '../components/icons');
-
-const generateDir = async (currentPath) => {
-  try {
-    await mkdir(currentPath, { recursive: true });
-  } catch (err) {
-    console.error(err.message);
-  }
-};
+const assetsPath = path.resolve(iconsPath, 'assets');
+const srcPath = path.resolve(iconsPath, 'src');
 
 /**
- * Process SVG structure to extract elements compatible with react-native-svg
- * Returns an array of SVG element definitions
+ * Post-process generated component:
+ * 1. Add BaseProps import and Pressable import
+ * 2. Extract SVG elements used and build proper imports
+ * 3. Replace component signature to use BaseProps
+ * 4. Wrap with Pressable for onPress support
  */
-const processSvgStructure = (svgStructure, replaceFillOrStrokeColor) => {
-  const elements = [];
+const postProcessComponent = (content, componentName) => {
+  // Remove xmlns attribute
+  let processed = content.replace(/xmlns="[^"]*"/g, '');
 
-  if (!svgStructure?.children?.length) return elements;
-
-  // Filter out text and defs elements (defs not supported in react-native-svg)
-  svgStructure.children = svgStructure.children.filter(
-    (c) => c.type !== 'text' && c.name !== 'defs'
+  // Extract SVG elements used in the component
+  const svgElements = [];
+  const elementMatches = processed.matchAll(
+    /<(G|Path|Defs|ClipPath|LinearGradient|Stop|Ellipse|Rect|Circle|Line|Polyline|Polygon|Use|Symbol|Image)(?:\s|[^>]*[^>])*>/g
   );
-
-  for (const child of svgStructure.children) {
-    if (child.type !== 'element') continue;
-
-    const attrs = child.attributes || {};
-    const processed = { type: child.name, props: {} };
-
-    // Handle fill - for vendor icons, always use currentColor; for public, only 'none' becomes currentColor
-    if (attrs.fill) {
-      if (replaceFillOrStrokeColor) {
-        processed.props.fill = 'currentColor';
-      } else if (attrs.fill === 'none') {
-        processed.props.fill = 'currentColor';
-      } else {
-        processed.props.fill = attrs.fill;
-      }
+  const seenElements = new Set();
+  for (const match of elementMatches) {
+    const el = match[1];
+    if (!seenElements.has(el)) {
+      seenElements.add(el);
+      svgElements.push(el);
     }
-
-    // Handle stroke - for vendor icons, always use currentColor
-    if (attrs.stroke) {
-      processed.props.stroke = replaceFillOrStrokeColor ? 'currentColor' : attrs.stroke;
-    }
-
-    // Copy relevant attributes
-    const scalarProps = [
-      'strokeWidth',
-      'strokeLinecap',
-      'strokeLinejoin',
-      'strokeDasharray',
-      'opacity',
-      'clipPath',
-      'transform',
-      'd',
-      'rx',
-      'ry',
-      'cx',
-      'cy',
-      'r',
-      'x',
-      'y',
-      'width',
-      'height',
-      'x1',
-      'x2',
-      'y1',
-      'y2',
-      'points',
-    ];
-
-    for (const prop of scalarProps) {
-      if (attrs[prop] !== undefined) {
-        processed.props[prop] = attrs[prop];
-      }
-    }
-
-    // Handle children recursively
-    if (child.children?.length) {
-      processed.children = processSvgStructure(child, replaceFillOrStrokeColor);
-    }
-
-    elements.push(processed);
   }
 
-  return elements;
-};
-
-/**
- * Extract viewBox and size from SVG root element
- */
-const extractSvgMetadata = (svgStructure) => {
-  const attrs = svgStructure.attributes || {};
-  return {
-    viewBox: attrs.viewBox || `0 0 ${attrs.width || 24} ${attrs.height || 24}`,
-    width: attrs.width || 24,
-    height: attrs.height || 24,
-  };
-};
-
-/**
- * Generate React Native SVG component that renders from JSON data
- */
-const generateSvgComponent = async (fileHandle, entry, pathList, replaceFillOrStrokeColor) => {
-  const currentPath = path.resolve(iconsPath, 'src', ...pathList.slice(2));
-
-  try {
-    await access(currentPath);
-  } catch {
-    await generateDir(currentPath);
-  }
-
-  const svgString = await fileHandle.readFile({ encoding: 'utf8' });
-  const svgJson = parseXml(svgString).toJSON();
-  const svgStructure = svgJson.children[0];
-  const elements = processSvgStructure(svgStructure, replaceFillOrStrokeColor);
-  const metadata = extractSvgMetadata(svgStructure);
-
-  const prefixFileName = camelCase(entry.split('.')[0]);
-  const fileName = prefixFileName.charAt(0).toUpperCase() + prefixFileName.slice(1);
-
-  // Generate SVG data JSON
-  const svgData = {
-    name: fileName,
-    viewBox: metadata.viewBox,
-    elements,
-  };
-
-  // Generate component that uses IconBase wrapped in Pressable for onPress support
-  const componentRender = template(
-    `
-// GENERATED BY script
-// DO NOT EDIT IT MANUALLY
-
-import * as React from 'react';
+  // Build imports
+  const svgImportElements = svgElements.length > 0 ? `, { ${svgElements.join(', ')} }` : '';
+  const imports = `import * as React from 'react';
 import { Pressable } from 'react-native';
+import Svg${svgImportElements} from 'react-native-svg';
 
-import IconBase from '@/components/icons/IconBase';
-import type { IconBaseProps, IconData } from '@/components/icons/types';
+import type { BaseProps } from '@/components/icons/types';
 
-import data from './<%= svgName %>.json';
+`;
 
-const <%= svgName %> = React.forwardRef<React.ElementRef<typeof Pressable>, IconBaseProps>(
-  ({ onPress, ...props }, ref) => (
-    <Pressable onPress={onPress} ref={ref}>
-      <IconBase {...props} data={data as IconData} />
+  // Find the Svg element content and extract viewBox
+  const svgMatch = processed.match(/<Svg([^>]*)>/);
+  const svgAttrs = svgMatch ? svgMatch[1] : '';
+
+  // Remove width/height and {...props} from svgAttrs but keep viewBox and fill
+  const cleanedSvgAttrs = svgAttrs
+    .replace(/\s*width=\{[^}]*\}/g, '')
+    .replace(/\s*height=\{[^}]*\}/g, '')
+    .replace(/\s*\{\.\.\.props\}/g, '')
+    .trim();
+
+  // Find the inner content of Svg (everything between <Svg ...> and </Svg>)
+  const svgContentMatch = processed.match(/<Svg[^>]*>([\s\S]*?)<\/Svg>/);
+  const svgInnerContent = svgContentMatch ? svgContentMatch[1].trim() : '';
+
+  // Build new component
+  const newComponent = `${imports}const ${componentName} = ({ color, size = 40, onPress }: BaseProps) => {
+  return (
+    <Pressable onPress={onPress}>
+      <Svg ${cleanedSvgAttrs} width={size} height={size}>
+        ${svgInnerContent}
+      </Svg>
     </Pressable>
-  )
-);
-
-<%= svgName %>.displayName = '<%= svgName %>';
-
-export default <%= svgName %>;
-`.trim()
   );
+};
 
-  // Write JSON data file
-  await writeFile(path.resolve(currentPath, `${fileName}.json`), JSON.stringify(svgData, '', '\t'));
+export default ${componentName};
+`;
 
-  // Write component file
-  await writeFile(
-    path.resolve(currentPath, `${fileName}.tsx`),
-    `${componentRender({ svgName: fileName })}\n`
-  );
-
-  // Append to index
-  const indexingRender = template(
-    `
-export { default as <%= svgName %> } from './<%= svgName %>';
-`.trim()
-  );
-
-  await appendFile(
-    path.resolve(currentPath, 'index.ts'),
-    `${indexingRender({ svgName: fileName })}\n`
-  );
+  return newComponent;
 };
 
 /**
- * Generate image component for PNG assets
+ * Generate native SVG components using @svgr/cli
  */
-const generateImageComponent = async (entry, pathList) => {
-  const currentPath = path.resolve(iconsPath, 'src', ...pathList.slice(2));
-
+const generateComponents = async () => {
+  // Clean up old src directory
   try {
-    await access(currentPath);
-  } catch {
-    await generateDir(currentPath);
-  }
+    rmSync(srcPath, { recursive: true, force: true });
+  } catch {}
 
-  const prefixFileName = camelCase(entry.split('.')[0]);
-  const fileName = prefixFileName.charAt(0).toUpperCase() + prefixFileName.slice(1);
+  // Find all SVG files and track their directories
+  const svgFiles = [];
 
-  // Calculate the relative path from the component file to the asset
-  // The component is at: components/icons/src/image/common/Layer.tsx
-  // The asset is at: components/icons/assets/image/common/layer.png
-  // From src/image/common/ we need ../../ to reach components/icons/
-  const assetRelativePath = path.join(...pathList.slice(2), entry).replace(/\\/g, '/');
-  const depth = pathList.slice(2).length; // e.g., ['image', 'common'] = 2 levels
-  // Go up 'depth' levels to reach icons/ (where src/ and assets/ are siblings)
-  const relativePath = '../'.repeat(depth) + `assets/${assetRelativePath}`;
+  const findSvgs = (dir, relativePath = '') => {
+    const entries = readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        findSvgs(fullPath, path.join(relativePath, entry.name));
+      } else if (entry.name.endsWith('.svg')) {
+        svgFiles.push({
+          fullPath,
+          relativePath,
+          fileName: entry.name,
+        });
+      }
+    }
+  };
 
-  // For React Native, wrap Image with Pressable to support onPress
-  const componentRender = template(
-    `
-// GENERATED BY script
-// DO NOT EDIT IT MANUALLY
+  findSvgs(assetsPath);
 
-import * as React from 'react';
-import { Image, Pressable } from 'react-native';
+  // Track index files to create
+  const indexFiles = new Map();
 
-import type { ImageIconBaseProps } from '@/components/icons/types';
+  for (const { fullPath, relativePath, fileName } of svgFiles) {
+    // Create directory structure in src
+    const outputDir = path.join(srcPath, relativePath);
+    mkdirSync(outputDir, { recursive: true });
 
-const <%= fileName %> = React.forwardRef<React.ElementRef<typeof Pressable>, ImageIconBaseProps>(
-  ({ size = 20, onPress, ...restProps }, ref) => (
-    <Pressable onPress={onPress} {...restProps} ref={ref}>
-      <Image
-        source={<%= assetPath %>}
-        style={{ width: size, height: size }}
-      />
-    </Pressable>
-  )
-);
+    // Convert kebab-case to PascalCase for component name
+    const componentName = path
+      .basename(fileName, '.svg')
+      .split('-')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join('');
 
-<%= fileName %>.displayName = '<%= fileName %>';
-
-export default <%= fileName %>;
-`.trim()
-  );
-
-  // Use require() with a static path - React Native requires static requires
-  await writeFile(
-    path.resolve(currentPath, `${fileName}.tsx`),
-    `${componentRender({
-      fileName,
-      assetPath: `require("${relativePath}")`,
-    })}\n`
-  );
-
-  const indexingRender = template(
-    `
-export { default as <%= fileName %> } from './<%= fileName %>';
-`.trim()
-  );
-
-  await appendFile(path.resolve(currentPath, 'index.ts'), `${indexingRender({ fileName })}\n`);
-};
-
-const walk = async (entry, pathList, replaceFillOrStrokeColor) => {
-  const currentPath = path.resolve(...pathList, entry);
-  let fileHandle;
-
-  try {
-    fileHandle = await open(currentPath);
-    const stat = await fileHandle.stat();
-
-    if (stat.isDirectory()) {
-      const files = await readdir(currentPath);
-
-      for (const file of files) await walk(file, [...pathList, entry], replaceFillOrStrokeColor);
+    // Generate native component using svgr
+    try {
+      execSync(`npx @svgr/cli --native --typescript --icon -d ${outputDir} ${fullPath}`, {
+        stdio: 'pipe',
+      });
+    } catch (err) {
+      console.error(`Error generating component for ${fullPath}`);
+      continue;
     }
 
-    if (stat.isFile() && /.+\.svg$/g.test(entry))
-      await generateSvgComponent(fileHandle, entry, pathList, replaceFillOrStrokeColor);
+    // Find and process the generated file
+    const generatedFile = path.join(outputDir, `${componentName}.tsx`);
 
-    if (stat.isFile() && /.+\.png$/g.test(entry)) await generateImageComponent(entry, pathList);
-  } finally {
-    fileHandle?.close();
+    if (require('fs').existsSync(generatedFile)) {
+      const content = readFileSync(generatedFile, 'utf8');
+      const processed = postProcessComponent(content, componentName);
+      writeFileSync(generatedFile, processed);
+
+      // Track for index file
+      const dirKey = relativePath || '.';
+      if (!indexFiles.has(dirKey)) {
+        indexFiles.set(dirKey, []);
+      }
+      indexFiles.get(dirKey).push(componentName);
+
+      console.log(`Generated: ${generatedFile}`);
+    }
+  }
+
+  // Create index files
+  for (const [dir, components] of indexFiles) {
+    const indexPath = path.join(srcPath, dir, 'index.ts');
+    const exports = components
+      .sort()
+      .map((c) => `export { default as ${c} } from './${c}';`)
+      .join('\n');
+    writeFileSync(indexPath, exports);
+    console.log(`Created index: ${indexPath}`);
   }
 };
 
-(async () => {
-  await rm(path.resolve(iconsPath, 'src'), {
-    recursive: true,
-    force: true,
-  });
-
-  // +++ Pre-create directories +++
-  await generateDir(path.resolve(iconsPath, 'assets/public'));
-  await generateDir(path.resolve(iconsPath, 'assets/vendor'));
-  await generateDir(path.resolve(iconsPath, 'assets/image'));
-
-  await walk('public', [iconsPath, 'assets']);
-  await walk('vendor', [iconsPath, 'assets'], true);
-  await walk('image', [iconsPath, 'assets']);
-
-  console.log('Icon generation complete!');
-})();
+generateComponents().then(() => {
+  execSync('npx prettier --write "components/icons/src/**/*.tsx"');
+  console.log('\nIcon generation complete!');
+  console.log('Components location: components/icons/src/');
+});

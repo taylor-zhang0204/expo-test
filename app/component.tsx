@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Input, Text, TextArea, Theme, XStack, YStack, ZStack } from 'tamagui';
 
-import { Chart } from '@/components/icons/src/public/common';
+import { Chart, Drip, Notion, Time } from '@/components/icons/src/public/common';
+import { NormalPoint, StartPoint } from '@/components/icons/src/public/flight';
 
 export default function Component() {
   const { t } = useTranslation();
@@ -80,7 +81,7 @@ export default function Component() {
             />
           </ZStack>
         </XStack>
-        <Theme name="dark">
+        <Theme>
           <Button size="$3" variant="outlined" height={60} width={100}>
             {t('component.activeButton')}
           </Button>
@@ -94,6 +95,13 @@ export default function Component() {
             />
             <Text color="$color">{t('component.testText')}</Text>
             <Chart color="red" size={40} onPress={() => console.log('Chart pressed')} />
+            <Drip size={40} onPress={() => console.log('Drip pressed')} />
+            <Notion size={40} onPress={() => console.log('Notion pressed')} />
+            <Time size={40} onPress={() => console.log('Time pressed')} />
+          </XStack>
+          <XStack>
+            <NormalPoint size={40} onPress={() => console.log('NormalPoint pressed')} />
+            <StartPoint size={40} onPress={() => console.log('StartPoint pressed')} />
           </XStack>
         </Theme>
       </YStack>
