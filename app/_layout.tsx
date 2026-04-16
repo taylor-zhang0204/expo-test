@@ -12,7 +12,7 @@ export default function RootLayout() {
 
   return (
     <TamaguiProvider config={tamaguiConfig} defaultTheme={colorScheme!}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#F7F9FD' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F7F9FD' }} edges={['top']}>
         <Stack
           screenOptions={{
             headerTransparent: true,

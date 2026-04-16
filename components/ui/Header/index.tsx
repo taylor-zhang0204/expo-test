@@ -1,9 +1,10 @@
+import { ChevronLeft } from '@tamagui/lucide-icons-2';
 import { useRouter } from 'expo-router';
 import { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { XStack, YStack } from 'tamagui';
 
-import { Globe, LeftArrow, Logo } from '@/components/icons/src/public/common';
+import { Globe, Logo } from '@/components/icons/src/public/common';
 
 interface HeaderProps {
   showBack?: boolean;
@@ -22,7 +23,7 @@ const Header = ({ showBack = true, title, right }: HeaderProps) => {
       style={{ alignItems: 'center', backgroundColor: '#FFFFFF' }}
     >
       <YStack position="absolute" style={{ left: 8 }}>
-        {router.canGoBack() && showBack && <LeftArrow size={30} onPress={() => router.back()} />}
+        {router.canGoBack() && showBack && <ChevronLeft onPress={() => router.back()} />}
       </YStack>
       <YStack flex={1} style={{ alignItems: 'center' }}>
         {title || <Logo size={60} />}

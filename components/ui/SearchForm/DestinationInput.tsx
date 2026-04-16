@@ -1,0 +1,54 @@
+import { useState } from 'react';
+import { Input, Text, XStack, YStack } from 'tamagui';
+
+import { Location } from '@/components/icons/src/public/common';
+
+type Props = {
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder?: string;
+};
+
+export default function DestinationInput({
+  value,
+  onChangeText,
+  placeholder = 'Cordis, Hong Kong',
+}: Props) {
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <YStack gap={6}>
+      <Text fontSize={13} fontWeight="500" style={{ color: '#003064' }} letterSpacing={-0.2}>
+        Destination
+      </Text>
+      <XStack
+        style={{
+          height: 45,
+          backgroundColor: '#F5F7FA',
+          borderRadius: 12,
+          paddingHorizontal: 16,
+          gap: 8,
+          alignItems: 'center',
+          borderWidth: 1,
+          borderColor: focused ? '#1566D1' : 'rgba(255,255,255,0.1)',
+        }}
+      >
+        <Location size={18} />
+        <Input
+          flex={1}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          style={{
+            backgroundColor: 'transparent',
+          }}
+          borderWidth={0}
+          // padding={0}
+          fontSize={15}
+        />
+      </XStack>
+    </YStack>
+  );
+}

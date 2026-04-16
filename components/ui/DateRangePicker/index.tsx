@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
-import { Calendar, DateData } from 'react-native-calendars';
+import { ChevronLeft, ChevronRight } from '@tamagui/lucide-icons-2';
+import dayjs from 'dayjs';
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, Text } from 'react-native';
+import { CalendarList, DateData } from 'react-native-calendars';
 import { MarkedDates } from 'react-native-calendars/src/types';
 
 type DateRange = {
@@ -14,31 +16,29 @@ type Props = {
   color?: string;
 };
 
+const PrimaryColor = '#1566D1';
+const SecondaryColor = '#EBF4FF';
+const CellSize = 50;
+
 export default function DateRangePicker({
   initialRange,
   onRangeChange,
-  color = '#50cebb',
+  color = PrimaryColor,
 }: Props) {
-  const [range, setRange] = useState<DateRange>(
-    initialRange ?? { startDate: '', endDate: '' },
-  );
+  const [range, setRange] = useState<DateRange>(initialRange ?? { startDate: '', endDate: '' });
 
-  useEffect(() => {
-    if (initialRange) {
-      setRange(initialRange);
-    }
-  }, [initialRange]);
-
-  const getMarkedDates = (): MarkedDates => {
+  const getMarkedDates = useCallback(() => {
     const { startDate, endDate } = range;
     const marked: MarkedDates = {};
 
     if (!startDate) return marked;
 
+    const isSingleDate = !endDate || startDate === endDate;
     marked[startDate] = {
       startingDay: true,
       color,
       textColor: 'white',
+      ...(isSingleDate && { endingDay: true }), // 单选日期时同时设置 endingDay
     };
 
     if (endDate && startDate !== endDate) {
@@ -48,11 +48,9 @@ export default function DateRangePicker({
       current.setDate(current.getDate() + 1);
 
       while (current < end) {
-        const dateString = current.toISOString().split('T')[0];
-        console.log(dateString);
+        const dateString = dayjs(current).format('YYYY-MM-DD');
         marked[dateString] = {
-          color: '#70d7c7',
-          textColor: 'white',
+          color: SecondaryColor,
         };
         current.setDate(current.getDate() + 1);
       }
@@ -65,7 +63,14 @@ export default function DateRangePicker({
     }
 
     return marked;
-  };
+  }, [range, color]);
+
+  useEffect(() => {
+    const { startDate, endDate } = range;
+    if (startDate && endDate) {
+      getMarkedDates();
+    }
+  }, [range, getMarkedDates]);
 
   const handleDayPress = (day: DateData) => {
     const { startDate, endDate } = range;
@@ -76,7 +81,7 @@ export default function DateRangePicker({
       onRangeChange?.(newRange);
     } else {
       if (day.dateString < startDate) {
-        const newRange = { startDate: day.dateString, endDate: startDate };
+        const newRange = { startDate: day.dateString, endDate: '' };
         setRange(newRange);
         onRangeChange?.(newRange);
       } else {
@@ -88,68 +93,77 @@ export default function DateRangePicker({
   };
 
   return (
-    <Calendar
-      style={{
-        width: 350,
-      }}
+    <CalendarList
+      calendarWidth={CellSize * 7}
       theme={{
         textDayFontSize: 14,
         textMonthFontSize: 16,
         textDayHeaderFontSize: 12,
       }}
+      // 最小日期, 默认当前日期，更早时间置灰不可选择
+      minDate={dayjs().format('YYYY-MM-DD')}
+      // 向前滚动的最大月数
+      pastScrollRange={0}
+      // 向后滚动的最大月数
+      futureScrollRange={12}
       renderArrow={(direction) => (
         <Text style={{ fontSize: 20, color: 'gray' }}>
-          {direction === 'left' ? '‹' : '›'}
+          {direction === 'left' ? <ChevronLeft /> : <ChevronRight />}
         </Text>
       )}
-      dayComponent={({ date, marking, state }) => {
+      dayComponent={({ date, marking, state, onPress }) => {
         if (!date) return null;
+
+        const handlePress = () => {
+          onPress?.(date);
+        };
 
         if (!marking) {
           const textColor = state === 'disabled' ? '#d9e1e8' : '#2d4150';
           return (
-            <View
+            <Pressable
               style={{
-                width: 50,
-                height: 50,
+                width: CellSize,
+                height: CellSize,
                 justifyContent: 'center',
                 alignItems: 'center',
               }}
+              onPress={handlePress}
             >
               <Text style={{ color: textColor, fontSize: 14 }}>{date.day}</Text>
-            </View>
+            </Pressable>
           );
         }
 
         const { startingDay, endingDay, color: bgColor, textColor } = marking;
-        const isStart = startingDay;
-        const isEnd = endingDay;
+
+        // isSingle: 单选日期（同时有 startingDay 和 endingDay）→ 全圆角
+        const isSingle = startingDay && endingDay;
+        // isRangeStart: 范围起点（只有 startingDay）→ 左边圆角，右边直角
+        const isRangeStart = startingDay && !endingDay;
+        // isRangeEnd: 范围终点（只有 endingDay）→ 左边直角，右边圆角
+        const isRangeEnd = endingDay && !startingDay;
 
         return (
-          <View
+          <Pressable
             style={{
-              width: 50,
-              height: 50,
+              width: CellSize,
+              height: CellSize,
               justifyContent: 'center',
               alignItems: 'center',
               backgroundColor: bgColor,
-              borderTopLeftRadius: isStart ? 16 : 0,
-              borderBottomLeftRadius: isStart ? 16 : 0,
-              borderTopRightRadius: isEnd ? 16 : 0,
-              borderBottomRightRadius: isEnd ? 16 : 0,
+              borderTopLeftRadius: isSingle || isRangeStart ? 50 : 0,
+              borderBottomLeftRadius: isSingle || isRangeStart ? 50 : 0,
+              borderTopRightRadius: isSingle || isRangeEnd ? 50 : 0,
+              borderBottomRightRadius: isSingle || isRangeEnd ? 50 : 0,
             }}
+            onPress={handlePress}
           >
             <Text style={{ color: textColor, fontSize: 14 }}>{date.day}</Text>
-            {isStart && (
-              <Text style={{ color: textColor, fontSize: 8 }}>CHECK-IN</Text>
-            )}
-            {isEnd && (
-              <Text style={{ color: textColor, fontSize: 8 }}>CHECK-OUT</Text>
-            )}
-          </View>
+          </Pressable>
         );
       }}
-      markingType='period'
+      markingType="period"
       markedDates={getMarkedDates()}
       onDayPress={handleDayPress}
     />
